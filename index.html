@@ -1,9 +1,9 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Real Mobile Navigation Map</title>
+    <title>AI Real Mobile Navigation Map PRO</title>
     
     <!-- OpenStreetMap 및 Leaflet 지도 API CDN -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
@@ -166,12 +166,16 @@
             flex: 1;
             width: 100%;
             position: relative;
+            overflow: hidden;
         }
 
+        /* 지도의 회전축을 정확히 사용자 기준 정가운데로 세팅하기 위한 베이스 데코 */
         #map {
             width: 100%;
             height: 100%;
             z-index: 1;
+            transition: transform 0.28s cubic-bezier(0.1, 0.4, 0.2, 1);
+            transform-origin: center center;
         }
 
         /* ==========================================================================
@@ -300,7 +304,7 @@
             color: var(--text-dark);
             cursor: pointer;
             font-size: 1.1rem;
-            transition: transform 0.2s;
+            transition: transform 0.2s, background-color 0.2s;
         }
 
         .hud-round-btn:active {
@@ -313,7 +317,7 @@
             animation: mic-pulse 1.4s infinite;
         }
 
-        /* 3-4. 차선 지시 인디케이터 (Lane Guide Overlay) */
+        /* 3-4. 차선 지시 인디케이터 (Lane Guidance Widget) */
         .hud-lane-guide-container {
             position: absolute;
             top: 125px;
@@ -338,12 +342,6 @@
             box-shadow: 0 6px 15px rgba(0,0,0,0.15);
         }
 
-        .lane-card-box.sub-lane {
-            border: 1px dashed #a8a8a8;
-            padding: 4px 10px;
-            opacity: 0.9;
-        }
-
         .lane-arrow {
             font-size: 1.1rem;
             color: #b0b0b8; /* 비활성 차선 회색 */
@@ -363,12 +361,6 @@
             height: 14px;
             background-color: #d1d1d6;
             margin: 0 2px;
-        }
-
-        .lane-bus {
-            font-size: 0.75rem;
-            font-weight: 900;
-            color: #a8a8a8;
         }
 
         /* 3-5. 좌측 가상 속도 및 카메라 경고 구획 */
@@ -438,6 +430,38 @@
         @keyframes camera-danger-flash {
             0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.6); }
             100% { box-shadow: 0 0 0 12px rgba(255, 59, 48, 0); }
+        }
+
+        /* 실시간 나침반 방향 정보 다이얼 계기 (Compass Dial Widget) */
+        .hud-compass-visual-widget {
+            position: absolute;
+            top: 205px;
+            right: 14px;
+            background-color: rgba(255,255,255,0.92);
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            padding: 6px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            pointer-events: auto;
+            width: 44px;
+            z-index: 1001;
+        }
+
+        .compass-dial-icon {
+            width: 28px;
+            height: 28px;
+            transition: transform 0.28s cubic-bezier(0.1, 0.4, 0.2, 1);
+            color: var(--primary-blue);
+        }
+
+        .compass-degree-txt {
+            font-size: 0.65rem;
+            font-weight: 900;
+            color: var(--text-dark);
+            margin-top: 3px;
         }
 
         /* 3-6. 하단 주행 대시보드 인디케이터 */
@@ -845,6 +869,12 @@
             100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); }
         }
 
+        /* 실시간 파도 타기식 블루 GPS 펄스 인디케이터 */
+        @keyframes gps-wave-ping {
+            0% { transform: scale(1); opacity: 0.65; }
+            100% { transform: scale(1.8); opacity: 0; }
+        }
+
         /* 지도 위 떠있는 플로팅 유틸 단추들 */
         .map-floating-panel {
             position: absolute;
@@ -995,7 +1025,7 @@
     <!-- 다이내믹 아일랜드 펀치홀 -->
     <div class="dynamic-island" id="dynamic-island-bar">
         <i class="fa-solid fa-location-arrow" style="color: var(--primary-blue); font-size: 0.75rem;"></i>
-        <span style="font-size: 0.65rem; font-weight: 700; color: #ffffff;" id="island-hud-indicator">REAL GPS</span>
+        <span style="font-size: 0.65rem; font-weight: 700; color: #ffffff;" id="island-hud-indicator">ACTIVE GPS</span>
     </div>
 
     <!-- 상태 바 -->
@@ -1075,6 +1105,15 @@
                     <div class="hud-camera-distance-badge" id="hud-camera-distance-pill" style="display: none;">72m</div>
                 </div>
 
+                <!-- 실시간 디지털 나침반 다이얼 HUD 표시기 -->
+                <div class="hud-compass-visual-widget" id="hud-compass-widget">
+                    <svg class="compass-dial-icon" id="compass-needle" viewBox="0 0 24 24">
+                        <polygon points="12,2 16,12 12,9 8,12" fill="var(--warning-red)"/>
+                        <polygon points="12,22 16,12 12,15 8,12" fill="var(--text-muted)"/>
+                    </svg>
+                    <div class="compass-degree-txt" id="compass-degree-txt">N 0°</div>
+                </div>
+
                 <!-- 우측 가상 플로팅 액션 버블 -->
                 <div class="hud-right-controls">
                     <button class="hud-round-btn" id="hud-voice-recognition-btn" onclick="app.triggerVoiceDetection('hud')" title="음성 인식 명령">
@@ -1085,7 +1124,7 @@
                     </button>
                     <!-- 나침반 자동 회전 주행 모드 토글 단추 -->
                     <button class="hud-round-btn" id="hud-compass-btn" onclick="app.toggleHeadsUpCompass()" title="헤즈업 맵 회전 제어">
-                        <i class="fa-solid fa-compass" id="hud-compass-icon"></i>
+                        <i class="fa-solid fa-compass" id="hud-compass-icon" style="color: var(--primary-blue)"></i>
                     </button>
                 </div>
 
@@ -1222,7 +1261,7 @@
     const APP_STATE = {
         theme: 'light',
         api_key: '',
-        user_coords: { lat: 37.3512, lng: 127.1064 }, // 기본 좌표
+        user_coords: { lat: 37.3512, lng: 127.1064 }, // 기본 정자역 인근 좌표
         destination_coords: null,
         map: null,
         active_markers: [],
@@ -1237,10 +1276,11 @@
         speech_rec_engine: null,
         tile_providers: {},
         
-        // 실시간 진짜 GPS 연동 데이터 변수셋
+        // 실시간 진짜 GPS 및 필터 처리 연동 변수셋
         watch_id: null,
         user_heading: 0,
-        heads_up_compass_active: true, // 헤즈업 주행방향 지도 회전 기본 활성화
+        smoothed_heading: 0, // 나침반 노이즈 상쇄용 최종 댐핑 각도
+        heads_up_compass_active: true, // 헤즈업 주행방향 지도 회전 제어
         route_polyline_points: [], // OSRM 경로 원시 포인트 데이터
         route_instructions: [], // OSRM 턴지시점 데이터셋
         next_instruction_index: 0,
@@ -1280,7 +1320,7 @@
         }
 
         initialize() {
-            DeviceLogger.write("실시간 GPS 물리 내비게이션 관제 시스템 가동중...");
+            DeviceLogger.write("나침반 댐프 필터링 시스템이 통합 탑재된 실시간 관제 기동.");
             this.syncHardwareTimer();
             this.loadLocalStorageSettings();
             this.buildLeafletMapEngine();
@@ -1362,7 +1402,9 @@
             }
 
             // 회전 각도(방향)가 인영된 전용 SVG 포인터 마커 빌드
-            const rotateAngle = APP_STATE.user_heading || 0;
+            // Heads-up 지도 회전 상태면 마커는 화면 기준 상단 고정이므로 회전 각도 0으로 연출하고, 맵만 돌림
+            const rotateAngle = APP_STATE.heads_up_compass_active ? 0 : APP_STATE.smoothed_heading;
+            
             const gpsNavIcon = L.divIcon({
                 html: `<div style="
                     position: relative;
@@ -1372,7 +1414,7 @@
                     align-items: center;
                     justify-content: center;
                     transform: rotate(${rotateAngle}deg);
-                    transition: transform 0.25s ease-out;
+                    transition: transform 0.15s ease-out;
                 ">
                     <div style="
                         position: absolute;
@@ -1469,10 +1511,11 @@
             alert('Gemini API 인증 연동 준비가 완료되었습니다.');
         }
 
-        // 스마트폰 나침반 각도 연계 이벤트 처리
+        // ==========================================================================
+        // 🛠️ 고도화 나침반(Device Orientation) 자이로 보간 정합화 서브엔진
+        // ==========================================================================
         bindDeviceOrientationSensor() {
             if (window.DeviceOrientationEvent) {
-                // iOS 장치 전용 권한 요구 대응 처리 포함
                 if (typeof DeviceOrientationEvent.requestPermission === 'function') {
                     document.body.addEventListener('click', () => {
                         DeviceOrientationEvent.requestPermission()
@@ -1491,47 +1534,134 @@
         }
 
         onOrientationDataUpdate(event) {
-            if (!APP_STATE.navigation_active || !APP_STATE.heads_up_compass_active) return;
+            let compassHeading = 0;
 
-            // 웹킷 브라우저 절대각 또는 노멀 보정각 인출
-            let compassHeading = event.webkitCompassHeading || (270 - event.alpha);
-            if (compassHeading) {
-                APP_STATE.user_heading = Math.round(compassHeading);
-                this.refreshUserPositionMarker();
-                
-                // 헤즈업 맵 정밀 로테이션 반영 (Leaflet 지도 컨테이너 전체 CSS 회전 제어 기법 적용)
-                const mapContainer = document.getElementById('map');
-                if (mapContainer) {
-                    mapContainer.style.transform = `rotate(${-APP_STATE.user_heading}deg)`;
-                    // 회전된 맵 구조 내부에서 안내용 글자 핀들이 반대로 뒤집히는 것을 방지하고자 추가 보정
-                    const markers = document.querySelectorAll('.leaflet-marker-icon, .leaflet-popup');
-                    markers.forEach(m => {
-                        m.style.transform += ` rotate(${APP_STATE.user_heading}deg)`;
-                    });
+            // 1. 크로스플랫폼 최적 절대 방향각 검출 구조화
+            if (event.webkitCompassHeading !== undefined) {
+                // iOS 전용 절대방향각 적용 (매우 정밀)
+                compassHeading = event.webkitCompassHeading;
+            } else if (event.absolute === true || event.absolute === undefined) {
+                if (event.alpha !== null) {
+                    // Android 기기 삼각함수 벡터 사영 융합 알고리즘
+                    compassHeading = this.computeAbsoluteHeadingAndroid(event.alpha, event.beta, event.gamma);
                 }
+            }
+
+            if (compassHeading !== undefined && compassHeading !== null) {
+                const targetHeading = Math.round(compassHeading);
+                
+                // 2. 359도 <-> 1도 교차 시 회전 튐(점프) 방지 최단각 보간(Shortest Angular Path) 연산
+                let diff = targetHeading - APP_STATE.smoothed_heading;
+                if (diff < -180) diff += 360;
+                if (diff > 180) diff -= 360;
+
+                // 3. 자이로 떨림 차단 저주파 필터(EMA Filter, 계수: 0.15)
+                const kFilteringFactor = 0.15; 
+                APP_STATE.smoothed_heading = (APP_STATE.smoothed_heading + kFilteringFactor * diff + 360) % 360;
+                APP_STATE.user_heading = Math.round(APP_STATE.smoothed_heading);
+
+                // 비주얼 대시보드 및 지형 나침반 바늘 로테이션 정렬
+                this.updateCompassVisualGaugeWidget();
+
+                if (APP_STATE.navigation_active && APP_STATE.heads_up_compass_active) {
+                    this.executeHeadsUpRotationEffect();
+                }
+            }
+        }
+
+        // 안드로이드 3축 자이로 오프셋 보정 필터식
+        computeAbsoluteHeadingAndroid(alpha, beta, gamma) {
+            const alphaRad = alpha * Math.PI / 180;
+            const betaRad = beta * Math.PI / 180;
+            const gammaRad = gamma * Math.PI / 180;
+
+            const cA = Math.cos(alphaRad);
+            const sA = Math.sin(alphaRad);
+            const cB = Math.cos(betaRad);
+            const sB = Math.sin(betaRad);
+            const cG = Math.cos(gammaRad);
+            const sG = Math.sin(gammaRad);
+
+            const rA = - sA * cG - cA * sB * sG;
+            const rB = - cA * cG + sA * sB * sG;
+
+            let heading = Math.atan2(rA, rB);
+            if (heading < 0) heading += 2 * Math.PI;
+
+            return heading * 180 / Math.PI;
+        }
+
+        // 모듈형 비주얼 나침반 위젯 다이얼 정렬
+        updateCompassVisualGaugeWidget() {
+            const needle = document.getElementById('compass-needle');
+            const txt = document.getElementById('compass-degree-txt');
+            if (needle) {
+                // 바늘은 맵의 반대 방향으로 회전해야 자북(North)을 항시 고정 지목함
+                needle.style.transform = `rotate(${-APP_STATE.user_heading}deg)`;
+            }
+
+            // 8방위 문자 분기
+            const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+            const idx = Math.round(((APP_STATE.user_heading % 360) / 45)) % 8;
+            if (txt) {
+                txt.innerText = `${directions[idx]} ${APP_STATE.user_heading}°`;
+            }
+        }
+
+        // 헤즈업 지도 물리 로테이션 전개 및 좌표계 보존 기법
+        executeHeadsUpRotationEffect() {
+            const mapContainer = document.getElementById('map');
+            if (mapContainer) {
+                // 단말 지반 회전의 역방향으로 맵을 회전시켜 정방향 진행형 헤즈업 연출
+                mapContainer.style.transform = `rotate(${-APP_STATE.user_heading}deg)`;
+
+                // 팝업 텍스트나 핀아이콘이 뒤집히지 않게 역회전 보정 가공
+                const innerMarkers = document.querySelectorAll('.leaflet-marker-icon, .leaflet-popup');
+                innerMarkers.forEach(el => {
+                    el.style.transformOrigin = "center bottom";
+                    el.style.transform = el.style.transform.replace(/rotate\([^)]+\)/g, '') + ` rotate(${APP_STATE.user_heading}deg)`;
+                });
             }
         }
 
         toggleHeadsUpCompass() {
             APP_STATE.heads_up_compass_active = !APP_STATE.heads_up_compass_active;
             const icon = document.getElementById('hud-compass-icon');
+            const mapContainer = document.getElementById('map');
+
             if (APP_STATE.heads_up_compass_active) {
                 icon.style.color = 'var(--primary-blue)';
-                DeviceLogger.write("주행 각도 연계 지도 자동 회전이 실행되었습니다.", "info");
+                DeviceLogger.write("부드러운 나침반 헤즈업 주행 모드를 잠금 가동했습니다.", "info");
+                
+                // ⚠️ 헤즈업 가동 시 조작 엇갈림 방지를 위해 맵 조작 차단 락(Lock)
+                if (APP_STATE.map) {
+                    APP_STATE.map.dragging.disable();
+                    APP_STATE.map.touchZoom.disable();
+                    APP_STATE.map.doubleClickZoom.disable();
+                    APP_STATE.map.scrollWheelZoom.disable();
+                    APP_STATE.map.setView([APP_STATE.user_coords.lat, APP_STATE.user_coords.lng], 17);
+                }
             } else {
                 icon.style.color = 'var(--text-muted)';
-                const mapContainer = document.getElementById('map');
+                DeviceLogger.write("북쪽 고정 기준 일반 모드로 지도 방향각을 환원했습니다.", "warn");
+                
                 if (mapContainer) mapContainer.style.transform = `rotate(0deg)`;
-                DeviceLogger.write("지도 자동회전을 차단하고 북쪽 기준 고정 모드로 변경했습니다.", "warn");
+                
+                // ⚠️ 헤즈업 해제 시 맵 자유 컨트롤 잠금 해제
+                if (APP_STATE.map) {
+                    APP_STATE.map.dragging.enable();
+                    APP_STATE.map.touchZoom.enable();
+                    APP_STATE.map.doubleClickZoom.enable();
+                    APP_STATE.map.scrollWheelZoom.enable();
+                }
+                this.refreshUserPositionMarker();
             }
         }
 
         // ==========================================================================
-        // 8. 실시간 물리 GPS 구동 내비게이션 파이프라인 (진짜 내비게이션 구현)
+        // 8. 실시간 진짜 GPS 구동 내비게이션 파이프라인 (진짜 내비게이션 구현)
         // ==========================================================================
-        
         triggerRealGPSModeManual() {
-            // 사용자에게 임의 목적지 입력을 받아 현재 물리 GPS 기준으로 진짜 내비를 동작시키는 파트
             const userDest = prompt("내비게이션 안내를 가동할 타겟 주소나 장소를 입력하세요. (예: 서울역)", "분당서울대학교병원");
             if (!userDest) return;
 
@@ -1581,6 +1711,10 @@
             // 실시간 OSRM 정밀 루트 피칭 호출
             await this.requestOSRMPathLineAndDraw(APP_STATE.user_coords, APP_STATE.destination_coords);
 
+            // 주행 전 상호 엇갈림 방지 나침반 잠금 전개 강제 활성
+            APP_STATE.heads_up_compass_active = false;
+            this.toggleHeadsUpCompass(); // 이 내부에서 참으로 토글하며 락업 전개
+
             // 🌟 실시간 기기 GPS WatchPosition 추적 엔진 기동 개시 🌟
             APP_STATE.watch_id = navigator.geolocation.watchPosition(
                 (pos) => this.onRealHardwareGPSTrigger(pos),
@@ -1588,7 +1722,7 @@
                     DeviceLogger.write(`GPS 센서 피드 오류 (오류코드: ${err.code})`, "error");
                 },
                 {
-                    enableHighAccuracy: true, // 고정밀 삼각망 추적 활성화
+                    enableHighAccuracy: true,
                     timeout: 5000,
                     maximumAge: 0
                 }
@@ -1608,7 +1742,6 @@
                     throw new Error("경로 산출 장애가 유발되었습니다.");
                 }
 
-                // 기존 경로 지우기
                 if (this.navPolyline) {
                     APP_STATE.map.removeLayer(this.navPolyline);
                 }
@@ -1617,11 +1750,9 @@
                 const rawCoords = route.geometry.coordinates;
                 APP_STATE.route_polyline_points = rawCoords.map(pt => ({ lat: pt[1], lng: pt[0] }));
                 
-                // OSRM 턴지시 가이드 파싱 적재
                 APP_STATE.route_instructions = route.legs[0].steps;
                 APP_STATE.next_instruction_index = 0;
 
-                // 지도상 선로 구축
                 const latlngs = APP_STATE.route_polyline_points.map(pt => [pt.lat, pt.lng]);
                 this.navPolyline = L.polyline(latlngs, {
                     color: '#ff9500',
@@ -1629,7 +1760,6 @@
                     opacity: 0.95
                 }).addTo(APP_STATE.map);
 
-                // 최초 정보 표출
                 this.updateDynamicNavigationHUD(route.distance, route.duration);
 
             } catch (err) {
@@ -1637,18 +1767,15 @@
             }
         }
 
-        // 실시간 기기 GPS 좌표가 갱신될 때마다 자동 작동되는 핸들러 파트
         onRealHardwareGPSTrigger(pos) {
             const currentLat = pos.coords.latitude;
             const currentLng = pos.coords.longitude;
 
-            // 기기 하드웨어 속도 해석 (m/s -> km/h 환산)
             let rawSpeed = pos.coords.speed;
             if (rawSpeed === null || rawSpeed < 0) {
-                // 센서 미지원 시, 이전 좌표간의 물리적 시간 차 계산을 통한 고속 수동 연산 fallback
                 if (this.prev_coords) {
                     const distDiff = this.calculateHaversineDistance(this.prev_coords.lat, this.prev_coords.lng, currentLat, currentLng);
-                    rawSpeed = distDiff / 1.5; // watchPosition 업데이트 평균 딜레이 기반 속도 유추
+                    rawSpeed = distDiff / 1.5; 
                 } else {
                     rawSpeed = 0;
                 }
@@ -1656,49 +1783,55 @@
             const speedKmh = Math.round(rawSpeed * 3.6);
             document.getElementById('hud-current-speedometer').innerHTML = `${speedKmh}<span>km/h</span>`;
 
-            // 나침반 수동 연쇄 보조 (이동 방향 감지 기반 나침반 앵글 산출)
+            // 이동 방향 보정이 없을 때 자이로 나침반의 앵글 자동 순차 필터 동기
             if (this.prev_coords && !pos.coords.heading) {
                 const calculatedHeading = this.getBearingOfTwoPoints(this.prev_coords.lat, this.prev_coords.lng, currentLat, currentLng);
-                APP_STATE.user_heading = calculatedHeading;
+                // 필터식 우회 통과 주입
+                let diff = calculatedHeading - APP_STATE.smoothed_heading;
+                if (diff < -180) diff += 360;
+                if (diff > 180) diff -= 360;
+                APP_STATE.smoothed_heading = (APP_STATE.smoothed_heading + 0.15 * diff + 360) % 360;
+                APP_STATE.user_heading = Math.round(APP_STATE.smoothed_heading);
             } else if (pos.coords.heading) {
-                APP_STATE.user_heading = pos.coords.heading;
+                let diff = pos.coords.heading - APP_STATE.smoothed_heading;
+                if (diff < -180) diff += 360;
+                if (diff > 180) diff -= 360;
+                APP_STATE.smoothed_heading = (APP_STATE.smoothed_heading + 0.15 * diff + 360) % 360;
+                APP_STATE.user_heading = Math.round(APP_STATE.smoothed_heading);
             }
 
-            // 기기 메모리 적재
             this.prev_coords = { lat: currentLat, lng: currentLng };
             APP_STATE.user_coords = { lat: currentLat, lng: currentLng };
 
             this.refreshUserPositionMarker();
 
-            // 맵 포커싱 조정
+            // 헤즈업 락 모드 유도 시 전용 포지셔닝 고정
             if (APP_STATE.heads_up_compass_active) {
-                APP_STATE.map.setView([currentLat, currentLng], 17);
+                APP_STATE.map.setView([currentLat, currentLng], 17, { animate: false });
+                this.executeHeadsUpRotationEffect();
             } else {
                 APP_STATE.map.panTo([currentLat, currentLng]);
             }
 
-            // 실시간 주행 이탈 감지 연산 처리 (Point-to-Segment 최단거리 계산)
+            // 오프라우트 이탈 계산(허용 반경: 50m)
             const offRouteLimitMeters = 50; 
             const shortestDistanceToRoute = this.calculateShortestDistanceToRoutePath(APP_STATE.user_coords, APP_STATE.route_polyline_points);
 
             if (shortestDistanceToRoute > offRouteLimitMeters) {
-                DeviceLogger.write(`[경로 이탈 알림] 원래 노선에서 ${Math.round(shortestDistanceToRoute)}m 이탈이 발생하여 즉시 자동 재탐색을 구동합니다.`, 'warn');
+                DeviceLogger.write(`[경로 이탈 탐지] 목표 주행선에서 ${Math.round(shortestDistanceToRoute)}m 이격이 생겨 긴급 실시간 우회로 산출을 작동합니다.`, 'warn');
                 this.triggerRealGPSReroute();
                 return;
             }
 
-            // 실시간 목적지 잔여 거리 해싱 및 HUD 표시 갱신
             if (APP_STATE.destination_coords) {
                 const totalDistMeters = this.calculateHaversineDistance(currentLat, currentLng, APP_STATE.destination_coords.lat, APP_STATE.destination_coords.lng);
-                const approxDurationSecs = (totalDistMeters / Math.max(5, rawSpeed || 13)); // 시속 약 45km 대리 연계 연산
+                const approxDurationSecs = (totalDistMeters / Math.max(5, rawSpeed || 13)); 
                 this.updateDynamicNavigationHUD(totalDistMeters, approxDurationSecs);
             }
 
-            // 근방 과속 방지 경고 기어 순환 가동
             this.evaluateCameraWarningZones(currentLat, currentLng, speedKmh);
         }
 
-        // 실시간 HUD 주행 가이드 패널 요소 갱신 처리
         updateDynamicNavigationHUD(totalDistance, totalDuration) {
             const distKm = (totalDistance / 1000).toFixed(1);
             const timeMins = Math.max(1, Math.round(totalDuration / 60));
@@ -1706,7 +1839,6 @@
             document.getElementById('hud-dashboard-time').innerHTML = `${timeMins}<span>분</span>`;
             document.getElementById('hud-dashboard-dist').innerText = `${distKm}km`;
 
-            // 역 지오코딩으로 하단 주소 실시간 갱신 처리 추가
             fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${APP_STATE.user_coords.lat}&lon=${APP_STATE.user_coords.lng}`)
                 .then(res => res.json())
                 .then(addr => {
@@ -1715,7 +1847,6 @@
                     document.getElementById('hud-dashboard-address').innerHTML = `<i class="fa-solid fa-location-dot"></i> ${cleanAddr.trim() || '도로 주행 중'}`;
                 }).catch(() => {});
 
-            // OSRM 단계별 지시 지점 파싱 및 가이드 갱신 가공
             if (APP_STATE.route_instructions.length > 0) {
                 const currentStepIdx = APP_STATE.next_instruction_index;
                 const steps = APP_STATE.route_instructions;
@@ -1725,22 +1856,19 @@
                     const stepCoord = currentStep.maneuver.location;
                     const distToTurn = this.calculateHaversineDistance(APP_STATE.user_coords.lat, APP_STATE.user_coords.lng, stepCoord[1], stepCoord[0]);
 
-                    // 해당 회전 분기점에 30m 이내로 도달 시 다음 안내 목록으로 자동 스와핑 유인
                     if (distToTurn < 30) {
                         APP_STATE.next_instruction_index++;
                         const nextSpeak = steps[APP_STATE.next_instruction_index]?.maneuver.instruction || "경로를 따라 주행해주십시오.";
                         this.speakVoiceGuidance(nextSpeak);
-                        DeviceLogger.write(`교차로 턴 지점 통과 완료: 다음 스텝으로 가이드를 승계합니다.`, 'info');
                     }
 
-                    // 사진 UI의 가이드라인 매칭 렌더링
                     let displayDist = `${Math.round(distToTurn)}m`;
                     if (distToTurn >= 1000) displayDist = `${(distToTurn / 1000).toFixed(1)}km`;
 
                     document.getElementById('hud-primary-distance').innerHTML = `${displayDist}`;
                     document.getElementById('hud-primary-roadname').innerText = currentStep.name || currentStep.maneuver.instruction;
 
-                    // 서브 턴 처리 (후순위 대기 행동 표기)
+                    // 서브 차선 연동
                     const subIdx = currentStepIdx + 1;
                     if (subIdx < steps.length) {
                         const subStep = steps[subIdx];
@@ -1752,7 +1880,6 @@
             document.getElementById('hud-dashboard-panel').classList.add('active');
         }
 
-        // 과속 방지 카메라 및 위험구역 물리 감지 연산 처리
         evaluateCameraWarningZones(lat, lng, speedKmh) {
             const limitRing = document.getElementById('hud-speed-limit-ring');
             const pill = document.getElementById('hud-camera-distance-pill');
@@ -1762,7 +1889,7 @@
 
             APP_STATE.speed_cameras.forEach(cam => {
                 const dist = this.calculateHaversineDistance(lat, lng, cam.lat, cam.lng);
-                if (dist < minDistance && dist < 400) { // 전방 400미터 이내의 경보 카메라 우선 지목
+                if (dist < minDistance && dist < 400) { 
                     minDistance = dist;
                     closestCamera = cam;
                 }
@@ -1783,7 +1910,7 @@
                 }
             } else {
                 pill.style.display = 'none';
-                limitRing.innerText = "50"; // 기본 제한 속도 가상 복구
+                limitRing.innerText = "50"; 
                 limitRing.classList.remove('pulsing');
             }
         }
@@ -1811,9 +1938,16 @@
             document.getElementById('phone-home-bar').classList.remove('hud-active');
             document.getElementById('bottom-drawer-sheet').classList.remove('collapsed');
             
-            // 나침반 복구
             const mapContainer = document.getElementById('map');
             if (mapContainer) mapContainer.style.transform = `rotate(0deg)`;
+
+            // ⚠️ 맵 잠금 전용 핸들러 안전 해제
+            if (APP_STATE.map) {
+                APP_STATE.map.dragging.enable();
+                APP_STATE.map.touchZoom.enable();
+                APP_STATE.map.doubleClickZoom.enable();
+                APP_STATE.map.scrollWheelZoom.enable();
+            }
 
             if (this.navPolyline) {
                 APP_STATE.map.removeLayer(this.navPolyline);
@@ -1847,7 +1981,7 @@
                 gainNode.connect(audioCtx.destination);
 
                 oscillator.type = 'sine';
-                oscillator.frequency.value = 1400; // 가속 경보 하이 데시벨 가이드음
+                oscillator.frequency.value = 1400; 
                 gainNode.gain.value = 0.25;
 
                 oscillator.start();
@@ -1859,14 +1993,14 @@
         // 9. 수학 지리 연산 도구 모음 (하버사인 기법 및 세그먼트 스냅)
         // ==========================================================================
         calculateHaversineDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3; // 지구 반경 (미터)
+            const R = 6371e3; 
             const dLat = (lat2 - lat1) * Math.PI / 180;
             const dLon = (lon2 - lon1) * Math.PI / 180;
             const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
                       Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
                       Math.sin(dLon / 2) * Math.sin(dLon / 2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return R * c; // 미터 단위 거리
+            return R * c; 
         }
 
         getBearingOfTwoPoints(lat1, lon1, lat2, lon2) {
@@ -2187,7 +2321,6 @@
             APP_STATE.speech_rec_engine.onstart = () => {
                 APP_STATE.voice_rec_active = true;
                 
-                // 타겟별 버튼 상태 갱신
                 if (APP_STATE.active_voice_target === 'ai') {
                     const btn = document.getElementById('ai-chat-mic-btn');
                     if(btn) btn.classList.add('recording');
@@ -2207,14 +2340,12 @@
                     document.getElementById('ai-chat-input-field').value = voiceRawText;
                     this.dispatchGeminiQuery();
                 } else {
-                    // HUD 음성 제어 모드 처리 (예: "안내 종료", "재탐색")
                     if (voiceRawText.includes("종료") || voiceRawText.includes("중단")) {
                         this.terminateNavigationMode();
                         this.speakVoiceGuidance("내비게이션 안내를 종료합니다.");
                     } else if (voiceRawText.includes("재탐색") || voiceRawText.includes("우회")) {
                         this.triggerRealGPSReroute();
                     } else {
-                        // 일반 입력으로 치환하여 제미나이 전송 진행
                         document.getElementById('ai-chat-input-field').value = voiceRawText;
                         this.toggleSidebarView();
                         this.dispatchGeminiQuery();
@@ -2266,7 +2397,6 @@
         }
     }
 
-    // 시스템 안전 인스턴스 할당 및 구동
     const app = new MobileAppController();
     window.onload = () => {
         app.initialize();
